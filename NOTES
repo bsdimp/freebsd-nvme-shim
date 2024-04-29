@@ -1,0 +1,123 @@
+Config:
+
+env CXX="c++ -I$HOME/git/freebsd-nvme-shim" CC="cc -I$HOME/git/freebsd-nvme-shim" meson setup --force-fallback-for=libnvme --wipe .build
+
+Include file magic:
+
+This repo has a few files that exist and try to mimic Linux APIs to get things
+to compile. See each file for details.
+
+Library Symbols:
+
+These need to be added to libnvme.map so they are exported, and defined in
+libnvme.so so that both the programs associated with libnvme.so can find it, as
+well as nvme-cli.
+
+FreeBSDPort_linux_ioctl() -> Converts Linux IOCTL numbers to FreeBSD. These
+numbers are either defined inside of libnvme, or in our shims to crazy
+values. By far the hardest are the nvme IOCTLs. We bogusly have to repeat the
+FreeBSD APIs because nvme.h has too much namespace pollution that conflicts with
+libnvme.h.
+
+/sys & /proc usage:
+
+All these go through open!
+
+
+libnvme/test/register.c: main
+	/sys/class/nvme/nvmeX/device/resource0
+	Mmaps this into user space to dump the registers of the NVME controller.
+	uses open.
+
+libnvme/src/nvme/util.c: get_entity_version
+	/proc/sys/kernel/ostype		Linux
+	/proc/sys/kernel/osrelease	Kernel Version
+	/etc/os-release			Just like on FreeBSD...
+
+	This routine is used with fabrics to describe the system
+	uses read_file which I think uses open.
+
+libnvme/tree.c
+
+#define PATH_UUID_IBM			"/proc/device-tree/ibm,partition-uuid"
+#define PATH_SYSFS_BLOCK		"/sys/block"
+#define PATH_SYSFS_SLOTS		"/sys/bus/pci/slots"
+#define PATH_SYSFS_NVME_SUBSYSTEM	"/sys/class/nvme-subsystem"
+#define PATH_SYSFS_NVME			"/sys/class/nvme"
+#define PATH_DMI_ENTRIES		"/sys/firmware/dmi/entries"
+
+and lots of nvme_*_sysfs_dir() functions that reference the above
+
+nvme_subsys_sysfs_dir()			"/sys/class/nvme-subsystem"
+	tree.c gets lots of information... for each subsystem...
+	s->model = nvme_get_attr(path, "model");
+	if (!s->model)
+		s->model = strdup("undefined");
+	s->serial = nvme_get_attr(path, "serial");
+	s->firmware = nvme_get_attr(path, "firmware_rev");
+	s->subsystype = nvme_get_attr(path, "subsystype");
+	if (!s->subsystype) {
+		if (!strcmp(s->subsysnqn, NVME_DISC_SUBSYS_NAME))
+			s->subsystype = strdup("discovery");
+		else
+			s->subsystype = strdup("nvm");
+	}
+	s->name = strdup(name);
+	s->sysfs_dir = (char *)path;
+	if (s->h->r->application)
+		s->application = strdup(s->h->r->application);
+	s->iopolicy = nvme_get_attr(path, "iopolicy");
+
+	Lots of info, not sure how widely used.
+
+nvme_ctrl_sysfs_dir()			"/sys/class/nvme"
+
+	To get lists of controllers in the system
+
+nvme_ns_sysfs_dir()			"/sys/block"
+
+	To crawl through the namespace
+
+nvme_slots_sysfs_dir()			"/sys/bus/pci/slots"
+
+	To get location info
+
+nvme_uuid_ibm_filename()		"/proc/device-tree/ibm,partition-uuid"
+
+	????
+
+nvme_dmi_entries_dir()			"/sys/firmware/dmi/entries"
+
+	Also to get location info
+
+fabrics.c:
+
+#define PATH_DMI_PROD_UUID  "/sys/class/dmi/id/product_uuid"
+ *     1) /sys/class/dmi/id/product_uuid
+ *     2) /sys/firmware/dmi/entries
+
+To get the system UUID from dmi
+
+micron-nvme.c:
+static char *fvendorid1 = "/sys/class/nvme/nvme%d/device/vendor";
+static char *fvendorid2 = "/sys/class/misc/nvme%d/device/vendor";
+static char *fdeviceid1 = "/sys/class/nvme/nvme%d/device/device";
+static char *fdeviceid2 = "/sys/class/misc/nvme%d/device/device";
+
+(also accessed with open)
+
+#define SYS_NVME "/sys/class/nvme"
+
+	sprintf(path, "/sys/class/nvme/%s/device/resource0", dev->name);	to map registers
+
+		"with an 'echo 1 > /sys/class/nvme/nvmeX/reset_controller'. "
+
+static char *_fmt1 = "/sys/class/nvme/nvme%d/device/subsystem_vendor";
+static char *_fmt2 = "/sys/class/nvme/nvme%d/device/subsystem_device";
+static char *_fmt3 = "/sys/class/nvme/nvme%d/device/vendor";
+static char *_fmt4 = "/sys/class/nvme/nvme%d/device/device";
+static char *_fmt5 = "/sys/class/nvme/nvme%d/device/class";
+
+#define NBFT_SYSFS_PATH		"/sys/firmware/acpi/tables"
+	To find NBFT
+
