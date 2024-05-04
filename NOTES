@@ -1,6 +1,6 @@
 Config:
 
-env CXX="c++ -I$HOME/git/freebsd-nvme-shim" CC="cc -I$HOME/git/freebsd-nvme-shim" meson setup --force-fallback-for=libnvme --wipe .build
+env CXX="c++ -I$HOME/git/freebsd-nvme-shim/include/freebsd-nvme-shim" CC="cc -I$HOME/git/freebsd-nvme-shim/include/freebsd-nvme-shim" meson setup --force-fallback-for=libnvme --wipe .build
 
 Include file magic:
 
