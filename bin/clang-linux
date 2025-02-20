@@ -1,0 +1,8 @@
+#!/bin/sh
+
+# Simple clang wrapper for cross compiling Linux...
+me=$(readlink -f "$0")
+where=$(dirname "$me")
+
+# echo clang -I${where}/.. "$@"
+clang -I${where}/.. "$@"
