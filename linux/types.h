@@ -12,10 +12,12 @@ typedef __u16	u16;
 typedef __u32	u32;
 typedef __u64	u64;
 
+#if !defined(__cplusplus)
 #undef bool
 typedef _Bool bool;
 #define false   0
 #define true    1
+#endif
 
 /* compiler_types.h */
 #define __kernel
