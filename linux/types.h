@@ -24,10 +24,6 @@ typedef _Bool bool;
 /* compiler_attributes.h */
 #define __must_check __attribute__((__warn_unused_result__))
 
-struct list_head {
-	struct list_head *next, *prev;
-};
-
 struct hlist_head {
 	struct hlist_node *first;
 };
